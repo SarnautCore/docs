@@ -274,11 +274,32 @@ mechanism.
    batch — an older undelivered batch is dropped rather than queued behind. Snapshot
    delivery is lossy by design.
 7. A batch whose **encoded `ServerMessage`** exceeds `MAX_UNRELIABLE_MESSAGE_SIZE` is
-   split into several batches carrying the same `server_tick`. The measurement is of
-   the whole envelope, not of the bare `SnapshotBatch`, because a datagram carries an
-   envelope (ADR 0026); measuring the payload alone would produce datagrams that are
-   over the cap by exactly the envelope overhead. A client must therefore treat a batch
-   as a partial view and merge by `server_tick`, never as a complete world state.
+   split into `chunk_count` batches carrying the same `server_tick`, numbered by
+   `chunk_index` from 0, whose entity lists partition the tick's entities in order.
+   The measurement is of the whole envelope, not of the bare `SnapshotBatch`, because
+   a datagram carries an envelope (ADR 0026); measuring the payload alone would
+   produce datagrams that are over the cap by exactly the envelope overhead. Room for
+   the two chunk fields is reserved before the split measures, because their values
+   are not known until the split has finished.
+   1. A receiver **must** hold the chunks of a `server_tick` until it has all
+      `chunk_count` of them and publish the merged batch, never a chunk on its own. A
+      chunk is a fragment of the world, not a view of it: acting on one alone reports
+      every entity that landed in a sibling chunk as gone. Reassembly is what makes
+      rule 5.5.6's "treat a batch as a partial view" actionable — before these fields
+      existed there was nothing to merge on and both receivers took one chunk as the
+      whole world.
+   2. `chunk_count` is 1 for a whole snapshot, **including every batch on the
+      reliable fallback of rule 5.5.8**, so the receiving rule is uniform rather than
+      conditional on the carrier.
+   3. An incomplete tick is abandoned as soon as a newer one begins. Snapshot delivery
+      is lossy by design (rule 5.5.6) and waiting for a lost chunk would stall
+      replication behind it; a receiver holds at most one incomplete tick, so a peer
+      cannot grow its memory by sending chunks it never completes.
+   4. An entity whose own single-entity envelope exceeds the cap is **dropped and
+      counted**, not emitted. `content_id`, `name_key` and `faction` are unbounded
+      content references, so this is reachable from authored data alone, and emitting
+      an over-cap datagram fails the send and ends the session for every player in the
+      zone over one entity none of them could have seen.
 8. When the transport cannot do datagrams, the identical envelopes travel on the
    reliable stream. The carrier changes; the bytes and the dispatch do not. This is
    **not** a test-only path: per the 2026-08-20 amendment to
@@ -484,11 +505,16 @@ and events are not lossy, and a client that stops reading will eventually stall 
 server's writes. What the server does then — buffer, disconnect, or block — is
 unspecified.
 
-### 7.5 The handshake timeout is not enforced yet
+### 7.5 The handshake timeout — closed 2026-08-20
 
-`HANDSHAKE_TIMEOUT_S` is a curated constant with no enforcement point in the current
-code. Rule 5.1.6 states the requirement; implementing it means giving the accept path
-a deadline that is cleared on reaching `Authenticated`.
+`HANDSHAKE_TIMEOUT_S` is now enforced. `SERVER:internal/session/handshake.go` arms a
+deadline before the first pre-admission read and clears it on reaching
+`Authenticated`, and `SERVER:internal/transport/quic.go` bounds how long an accepted
+QUIC connection may go without opening its session stream. Both were needed: a QUIC
+stream is invisible to the peer until its opener writes on it, so accepting the stream
+on the accept loop's own goroutine let one silent connection stall admission for
+everyone, which is a denial of service rather than the leak rule 5.1.6 was written
+against.
 
 ### 7.6 Logout and quest abandon — closed 2026-08-20
 
@@ -529,7 +555,8 @@ SarnautCore server-repository paths (`SERVER:` = `server/`):
   `.proto` set (ADR 0027) and the two reader goroutines of rule 5.5.1.
 - `proto/sarnaut/v1/movement.proto` — `ClientMoveIntent` with `seq`, `input`,
   `heading`, `dt_seconds`; and `Vec3`.
-- `proto/sarnaut/v1/replication.proto` — `SnapshotBatch` and `EntitySnapshot`.
+- `proto/sarnaut/v1/replication.proto` — `SnapshotBatch` and `EntitySnapshot`, with
+  the `chunk_index` / `chunk_count` pair of rule 5.5.7.
 - `internal/transport/framing.go` — `MaxUnreliableMessageSize` and its rationale.
 - `internal/session/handshake.go` — the current hello-then-`EnterZone` ordering, the
   point at which zone teardown is armed relative to entity creation (rule 5.6.1), the
