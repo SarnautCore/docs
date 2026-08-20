@@ -31,3 +31,11 @@ marked, never deleted.
 | [0023](0023-linear-structure.md) | Linear structure |
 | [0024](0024-ci-runners.md) | CI runners |
 | [0025](0025-continuous-operation-hard-stops.md) | Continuous operation with hard stops |
+| [0026](0026-wire-message-envelope.md) | Wire message envelope, channel assignment, snapshot ownership |
+| [0027](0027-proto-contract-and-wire-evolution.md) | Cross-repo proto contract, drift control, wire evolution |
+| [0028](0028-world-sim-protobuf-boundary.md) | World sim owns domain types; protobuf stops at the session layer |
+| [0029](0029-runtime-pack-format.md) | Compiled runtime pack format and overlay merge semantics |
+| [0030](0030-auth-account-service-session-tokens.md) | Auth service: Argon2id, opaque tokens, NATS admission |
+| [0031](0031-persistence-and-migrations.md) | Persistence: PostgreSQL, goose migrations, checkpoint saves |
+| [0032](0032-character-creation.md) | Character creation from a compiled chargen pack table |
+| [0033](0033-m2-module-topology-gateway-deviation.md) | M2 shard module topology via depguard; gateway deviation |

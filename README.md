@@ -46,3 +46,32 @@ See [charter.md](charter.md) for the full goals, non-goals, and sources policy, 
 - [charter.md](charter.md) — goals, non-goals, sources policy.
 - [adr/](adr/) — Architecture Decision Records, the project's constitution.
 - [specs/](specs/) — behavioral specifications distilled from reverse-engineering research.
+
+### Architecture Decision Records
+
+The full index is in [adr/README.md](adr/README.md). ADRs 0001-0025 set the project up;
+0026-0033 are the M2 foundation:
+
+| # | Decision |
+|---|---|
+| [0026](adr/0026-wire-message-envelope.md) | Wire message envelope, channel assignment, snapshot ownership |
+| [0027](adr/0027-proto-contract-and-wire-evolution.md) | Cross-repo proto contract, drift control, wire evolution |
+| [0028](adr/0028-world-sim-protobuf-boundary.md) | World sim owns domain types; protobuf stops at the session layer |
+| [0029](adr/0029-runtime-pack-format.md) | Compiled runtime pack format and overlay merge semantics |
+| [0030](adr/0030-auth-account-service-session-tokens.md) | Auth service: Argon2id, opaque tokens, NATS admission |
+| [0031](adr/0031-persistence-and-migrations.md) | Persistence: PostgreSQL, goose migrations, checkpoint saves |
+| [0032](adr/0032-character-creation.md) | Character creation from a compiled chargen pack table |
+| [0033](adr/0033-m2-module-topology-gateway-deviation.md) | M2 shard module topology via depguard; gateway deviation |
+
+### Specifications
+
+How to write one, and the two rules every mechanics pull request answers to, are in
+[specs/README.md](specs/README.md); start a new spec from
+[specs/TEMPLATE.md](specs/TEMPLATE.md).
+
+| Spec | Covers | Milestone |
+|---|---|---|
+| [mechanics/combat.md](specs/mechanics/combat.md) | Derived stats, targeting, GCD, damage, aggro, death and respawn | M2 |
+| [mechanics/loot.md](specs/mechanics/loot.md) | Loot-table evaluation, stack splitting, kill credit and ownership | M2 |
+| [mechanics/quests.md](specs/mechanics/quests.md) | Quest state machine, objectives, prerequisites, the reward grant | M2 |
+| [protocol/session.md](specs/protocol/session.md) | Connect, admission, `EnterZone`, the command loop, save checkpoints | M2 |

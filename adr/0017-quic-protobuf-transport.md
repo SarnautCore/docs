@@ -22,3 +22,18 @@ server side and `System.Net.Quic` ships in modern .NET for the Godot C# client.
 - The transport seam is a hard boundary: game code sees channels/messages, never
   QUIC types.
 - Certificate handling for local dev (self-signed) is an infra concern from M1.
+
+## Amendments
+
+- **2026-08-20 — datagrams are a Go-side capability, not a shipped client path.**
+  `System.Net.Quic` in .NET 10 exposes no datagram API: `QuicConnection` has no
+  send or receive datagram surface, so MsQuic's datagram support is unreachable
+  from managed code. `client/src/SarnautCore.Network/GameSession.cs` therefore uses
+  the **ordered-stream fallback** for movement and snapshots and reports it in
+  `GameSession.TransportMode`. The Go `session.Client` still negotiates datagrams
+  when `transport.Connection.SupportsUnreliable()` is true, so the datagram path is
+  exercised by Go integration tests and by the smoke client only. The channel split
+  above stays the design and stays enforced at the message level
+  ([ADR 0026](0026-wire-message-envelope.md)); only the carrier differs on the
+  shipped client. Revisit when .NET exposes datagrams or when the client moves to a
+  native QUIC binding.
