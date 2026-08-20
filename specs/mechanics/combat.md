@@ -53,7 +53,7 @@ Naming the source root prefixes used below:
 
 | Constant | Value | Unit | Provenance |
 |---|---|---|---|
-| `HP_BASE` | 100 | hit points | curated SarnautCore decision — placeholder for the unlocated level curve, see §7.1 |
+| `HP_BASE` | 100 | hit points | curated SarnautCore decision — the level curve is not in content and is owned by this project, settled in §7.1 |
 | `HP_PER_LEVEL` | 20 | hit points | curated SarnautCore decision — see §7.1 |
 | `ARMOR_BASE` | 10 | armor | curated SarnautCore decision |
 | `ARMOR_PER_LEVEL` | 20 | armor | curated SarnautCore decision |
@@ -323,10 +323,11 @@ consumed. A rejected ability costs the player nothing.
 
 ## 7. Open questions and placeholders
 
-### 7.1 The level-to-base-HP/DPS curve is not in the data tree
+### 7.1 The level-to-base-HP/DPS curve is a curated decision
 
-This is the largest placeholder in the spec and the reason `HP_BASE` and
-`HP_PER_LEVEL` are curated rather than cited.
+**Settled 2026-08-20.** This section used to be an open question. The search is now
+finished and the answer is negative: the curve is not in the content tree, and
+SarnautCore owns it.
 
 What is observable: ordinary world mobs derive their health and damage from a
 `MobKind` resource that carries only **multipliers** — `hpMod`, `dpsMod`, `expMod`,
@@ -334,27 +335,44 @@ What is observable: ordinary world mobs derive their health and damage from a
 siblings; instance kinds such as
 `REF:Mechanics/Creatures/AirElemental/AirElementalStartInstKind.(MobKind).xdb`
 inherit them through a `Prototype` reference). The multiplicand — the per-level base
-HP and base DPS those mods scale — does not appear anywhere under the data root. The
-one place explicit absolute values do appear is astral mobs, whose
-`AstralMobWorld` resources carry `<baseHP>`, `<baseDPS>`, and `<baseAggroRange>`
-directly (`REF:Mechanics/Astral/Mobs/Single/Assassin.xdb`), and those are a separate
-mob system that bypasses the curve entirely.
+HP and base DPS those mods scale — does not appear anywhere under the data root.
 
-Conclusion: the curve lives in server code, not in content. Three outcomes are
-possible, in order of preference:
+Where the extraction pass looked, and what it found:
 
-1. The curve is recovered as a closed form or table and becomes a cited constant.
-2. The curve is not recoverable cheaply and SarnautCore adopts a **curated constant
-   table** shipped in `DATA:` as first-class content, versioned like any other data.
-3. The curve stays a two-parameter line, as it is here, indefinitely.
+| Candidate | Result |
+|---|---|
+| `REF:Mechanics/GameRoot/ExperienceTable.xdb` | 50-row table, but it is XP-to-level for **players**, not mob base stats |
+| `REF:Mechanics/GameRoot/StatGainTable.xdb` | 51-row table of player primary/secondary stat gain per level |
+| `REF:Mechanics/GameRoot/MobRoot.xdb` | a warm-up buff reference and a melee range of 5; no curve |
+| `REF:System/Corks/MobKind.xdb` | the null-object `MobKind`; carries `hpMod`/`dpsMod` like any other, no base |
+| `REF:Mechanics/Rules/`, `REF:Mechanics/Variables/` | timers, contest windows and per-spell variables only |
+| `REF:Types/types.xml` | a class registry; it names `MobKind` but declares no field values |
+| Tree-wide grep for `baseHP`, `baseDps`, `hpPerLevel`, `healthPerLevel`, `levelTable` | hits only under `REF:Mechanics/Astral/Mobs/`, plus two unrelated buff files |
+
+The only place absolute values appear is astral mobs, whose `AstralMobWorld`
+resources carry `<baseHP>`, `<baseDPS>`, and `<baseAggroRange>` directly
+(`REF:Mechanics/Astral/Mobs/Single/Assassin.xdb`), and those are a separate mob
+system that bypasses the curve entirely.
+
+**Decision.** Outcome 2 of the three previously listed: the curve is a **curated
+SarnautCore constant**, not a cited one. `HP_BASE` and `HP_PER_LEVEL` in §3 are that
+constant in its current two-parameter form. It graduates to a curated constant table
+shipped in `DATA:` — with a schema in `data-schemas` and a loader change — when
+combat needs more resolution than a straight line; until then the line stays, and
+nothing in the pipeline pretends otherwise.
+
+**How the gap is recorded in data.** `sarnaut-extract mobkinds` emits the resolved
+multiplier chain with `_source.prototype_chain`, and every mob kind carries
+`extra.level_curve_gap` naming this section. A reader of an extracted mob kind cannot
+mistake the multipliers for absolute stats, and nothing downstream has to guess where
+the missing multiplicand went.
 
 Blast radius of a change: `HP_BASE` and `HP_PER_LEVEL` feed rule 5.1.1 only. Every
-worked number in §6 changes; no rule text changes. Outcome 2 additionally requires a
-schema in `data-schemas` and a loader change.
+worked number in §6 changes; no rule text changes.
 
-Until then, the multiplier chain (`hp_mod`, `dps_mod`, and the prototype inheritance
-that resolves them) is **explicitly deferred** per ADR 0003. Rule 5.1.1 accepts an
-`hp_mod` argument so the seam exists, and M2 always passes `1.0`.
+Until the multiplier chain is actually applied, it stays **explicitly deferred** per
+ADR 0003. Rule 5.1.1 accepts an `hp_mod` argument so the seam exists, and M2 always
+passes `1.0`.
 
 ### 7.2 Distance units are unverified
 
@@ -430,3 +448,4 @@ decompiled code, and no localization strings, art, or bulk data tables appear he
 | Date | Change |
 |---|---|
 | 2026-08-20 | Created for M2. |
+| 2026-08-20 | §7.1 settled: the level curve is absent from the source tree and is a curated SarnautCore constant. Search record added. |
