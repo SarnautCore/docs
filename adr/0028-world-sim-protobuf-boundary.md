@@ -35,7 +35,7 @@ After migration, `internal/world` imports no generated protobuf package. The
 observable test is `grep -c sarnautv1 server/internal/world/*.go` returning zero, and
 the enforcement is a `depguard` rule in `server/.golangci.yml` denying
 `github.com/SarnautCore/server/gen/...` from `internal/world`, run by the existing
-golangci-lint CI step (action `golangci/golangci-lint-action@v9`, linter v2.12.2).
+golangci-lint CI step (action `golangci/golangci-lint-action@v9`, linter v2.13.0).
 
 New domain types in `internal/world`:
 
@@ -112,3 +112,13 @@ and it carries the `depguard` rule that makes that permanent.
 - A retail-protocol front-end (ADR 0010) becomes a second mapping file next to
   `mapping.go`, with `internal/world` untouched — which is the property ADR 0010
   asked for.
+
+## Amendments
+
+### 2026-08-20 — golangci-lint moves to v2.13.0
+
+Go 1.27 requires a linter binary built with Go 1.27 or newer. The v2.12.2
+release was built with Go 1.26 and rejects modules targeting Go 1.27. Version
+v2.13.0 is the first golangci-lint release with Go 1.27 support, so the server
+CI pin and the version recorded above move together. The depguard decision is
+unchanged.

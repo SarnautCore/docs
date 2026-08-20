@@ -73,7 +73,7 @@ From M2 the rule is an import-graph check that runs in CI and fails the build. I
 is not reviewer judgement.
 
 **Mechanism: the `depguard` linter, in the golangci-lint run the repo already has.**
-`.github/workflows/ci.yml` runs `golangci-lint-action` at pinned `v2.12.2`, and
+`.github/workflows/ci.yml` runs `golangci-lint-action` at pinned `v2.13.0`, and
 `.golangci.yml` is already v2-format. depguard supports per-path rules — a `files`
 selector plus an `allow`/`deny` list — which is exactly the shape needed. This adds
 no tool, no second config file, and no new CI step: an illegal import fails the
@@ -215,7 +215,7 @@ failure.
 - **`go-arch-lint`, or a hand-written `go list -deps` script in `make verify`.**
   Both work. Rejected because each adds a tool to install and pin, and a second
   place where import rules live, when golangci-lint is already installed, already
-  pinned to `v2.12.2` in CI, and already fails the build.
+  pinned to `v2.13.0` in CI, and already fails the build.
 - **Relying on ADR 0016's prose plus code review.** This is the status quo, and the
   status quo has produced no artifact that can fail. Rejected on the grounds that a
   rule nobody can run is a rule nobody checks on the day it matters.
@@ -244,3 +244,13 @@ failure.
   depguard rule enforces that.
 - Any M2 work that makes the shard's transport handling harder to lift out is a
   violation of this ADR and is reviewable against the cost list above.
+
+## Amendments
+
+### 2026-08-20 — golangci-lint moves to v2.13.0
+
+Go 1.27 requires a linter binary built with Go 1.27 or newer. The v2.12.2
+release was built with Go 1.26 and rejects modules targeting Go 1.27. Version
+v2.13.0 is the first golangci-lint release with Go 1.27 support, so the server
+CI pin and the version recorded above move together. The depguard rules and
+module topology do not change.
