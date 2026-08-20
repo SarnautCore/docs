@@ -39,3 +39,4 @@ marked, never deleted.
 | [0031](0031-persistence-and-migrations.md) | Persistence: PostgreSQL, goose migrations, checkpoint saves |
 | [0032](0032-character-creation.md) | Character creation from a compiled chargen pack table |
 | [0033](0033-m2-module-topology-gateway-deviation.md) | M2 shard module topology via depguard; gateway deviation |
+| [0034](0034-pinned-patch-free-godot-fork.md) | Pinned patch-free Godot fork |
