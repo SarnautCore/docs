@@ -38,7 +38,9 @@ useful while mapping coverage is incomplete, and it must not reach a public arti
 - **Reader**: a new Go package `server/internal/pack`, using
   `github.com/zeebo/blake3 v0.2.4` for digest verification and the repo's existing
   `google.golang.org/protobuf v1.36.12` for row decoding. It replaces
-  `internal/content`'s YAML walk.
+  `internal/content`'s YAML walk. To be explicit: `internal/content` is deleted
+  outright and `internal/pack` is its replacement, not a façade over it — no
+  package in `server` parses game-content YAML after the cutover.
 
 Neither side imports the other. They interoperate because this ADR specifies the
 bytes and because a CI job builds the golden fixture with the Rust writer and reads
