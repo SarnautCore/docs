@@ -25,7 +25,9 @@ path a real quest would.
 Out of scope: dialogue trees, quest chains beyond a single prerequisite edge, quest
 items that drop from mobs (M2's item objective is satisfied by a hand-placed grant),
 `startImpacts` / `rewardImpacts` scripting, quest-attached loot tables, and every
-non-solo quest type. All queued per ADR 0003.
+non-solo quest type. [ADR 0035](../../adr/0035-m3-league-tutorial.md) moves the
+InstLeague1 quest chain, quest items, and impact scripting into M3; dialogue,
+quest-attached loot tables, and non-solo types remain out of scope.
 
 ## 2. Vocabulary
 
@@ -378,8 +380,9 @@ Reference quest records carry a `rewardImpacts` structure whose entries are type
 impacts — buff attach and detach among them — and the surrounding data model has
 race, class, honor, and reputation gates. Conditional rewards ("a plate wearer gets
 the plate version") are the obvious use. M2 grants a flat reward list with no
-conditions. Resolving this requires the impact system and the class/race model, both
-queued per ADR 0003.
+conditions. [ADR 0035](../../adr/0035-m3-league-tutorial.md) brings the impact system
+and class/race model into M3; reserved ADR 0036 defines the shared script
+representation.
 
 ### 7.3 Quest-attached loot tables
 

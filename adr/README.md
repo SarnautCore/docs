@@ -40,3 +40,8 @@ marked, never deleted.
 | [0032](0032-character-creation.md) | Character creation from a compiled chargen pack table |
 | [0033](0033-m2-module-topology-gateway-deviation.md) | M2 shard module topology via depguard; gateway deviation |
 | [0034](0034-pinned-patch-free-godot-fork.md) | Pinned patch-free Godot fork |
+| [0035](0035-m3-league-tutorial.md) | M3 League tutorial scope, exit gate, and binding cut ladder |
+| 0036 (reserved) | Script runtime representation |
+| [0037](0037-public-private-content-split.md) | Public authored content; private game-derived content |
+| 0038 (reserved) | World geometry coordinate frames and distance units |
+| 0039 (reserved) | Gateway interposition and zone-transfer session model |
