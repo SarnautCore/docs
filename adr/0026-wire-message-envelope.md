@@ -44,20 +44,22 @@ message ClientMessage {
     LootTake         loot_take     = 13;
     QuestAccept      quest_accept  = 14;
     QuestTurnIn      quest_turn_in = 15;
+    QuestAbandon     quest_abandon = 16;
+    Logout           logout        = 17;
   }
 }
 
 message ServerMessage {
   uint64 server_tick = 1;
   oneof payload {
-    SnapshotBatch   snapshot_batch   = 10;
-    CombatEvent     combat_event     = 11;
-    DeathEvent      death_event      = 12;
-    LootOffer       loot_offer       = 13;
-    LootResult      loot_result      = 14;
-    InventoryUpdate inventory_update = 15;
-    QuestState      quest_state      = 16;
-    Error           error            = 17;
+    SnapshotBatch    snapshot_batch     = 10;
+    CombatEvent      combat_event       = 11;
+    DeathEvent       death_event        = 12;
+    LootOffer        loot_offer         = 13;
+    LootResult       loot_result        = 14;
+    InventoryUpdate  inventory_update   = 15;
+    QuestStateUpdate quest_state_update = 16;
+    Error            error              = 17;
   }
 }
 ```
@@ -93,9 +95,9 @@ latest-value-wins state where staleness beats retransmission. Every other case �
 including **all combat traffic** — travels on the reliable ordered stream:
 
 - Reliable stream, client to server: `ability_use`, `interact`, `loot_take`,
-  `quest_accept`, `quest_turn_in`.
+  `quest_accept`, `quest_turn_in`, `quest_abandon`, `logout`.
 - Reliable stream, server to client: `combat_event`, `death_event`, `loot_offer`,
-  `loot_result`, `inventory_update`, `quest_state`, `error`.
+  `loot_result`, `inventory_update`, `quest_state_update`, `error`.
 
 A combat command is therefore a `ClientMessage.ability_use` on the reliable stream,
 never a datagram. Dropping an ability activation is a gameplay bug; dropping a
@@ -189,3 +191,41 @@ observe the same content for the same tick.
 - `client/tools/SarnautCore.NetSmoke` and `server/scripts/sar20-client-smoke.ps1`
   move to the envelope in the same change; there is no transition period in which
   both framings are accepted.
+
+## Amendments
+
+### 2026-08-20 — `quest_abandon` and `logout` join the case list
+
+The original case list omitted both, and
+[`../specs/protocol/session.md`](../specs/protocol/session.md) §7.6 recorded the
+omission as an open question. Both are added now, while the envelope is being
+built, rather than retrofitted:
+
+- **`quest_abandon`** carrying `QuestAbandon`.
+  [`../specs/mechanics/quests.md`](../specs/mechanics/quests.md) transitions T14
+  and T15 are fully specified and were unreachable from a client without it. A
+  quest log the player cannot abandon from is a visible hole, not a deferred
+  feature.
+- **`logout`** carrying `Logout`, an empty message whose actor is the session.
+  Rule 5.6.4 handled a clean exit by having the client close the connection,
+  which works only because nothing is owed on the way out. It stops working as
+  soon as the disconnect path has to persist: a close races the save checkpoint,
+  while an explicit verb lets the shard run S1 and then unwind through the same
+  teardown. The shard answers nothing; `readReliable` returns, the handler
+  returns, and the existing `defer` does the rest.
+
+Both are additive oneof cases and neither bumps `ProtocolVersion`
+([ADR 0027](0027-proto-contract-and-wire-evolution.md)).
+
+### 2026-08-20 — `quest_state` is renamed `quest_state_update`
+
+The server case named `quest_state` carrying a message named `QuestState`
+collided with the `QuestState` enum that
+[`../specs/mechanics/quests.md`](../specs/mechanics/quests.md) rule 5.1 defines
+for a quest instance's state. Two different things named `QuestState` in one
+`sarnaut.v1` package is a name the quest task would have had to break anyway,
+and breaking it after the wire existed would have cost a `ProtocolVersion` bump.
+
+The wire case is `quest_state_update = 16`, carrying `QuestStateUpdate`. The
+field number is unchanged: this is a rename before first use, not a
+renumbering. The enum keeps the name `QuestState` for the state itself.

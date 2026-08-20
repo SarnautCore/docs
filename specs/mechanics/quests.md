@@ -149,11 +149,16 @@ scope; when they arrive they add a new state rather than reopening this one.
 
 The client-driven triggers are the `ClientMessage` oneof cases of
 [ADR 0026](../../adr/0026-wire-message-envelope.md) — `quest_accept` carries
-`QuestAccept`, `quest_turn_in` carries `QuestTurnIn` — and both travel on the reliable
-channel. **`QuestAbandon` has no case in the M2 message set**: T14 and T15 are
-specified and unreachable from a client until one is added, which is an additive change
-that does not bump `ProtocolVersion` (ADR 0027). See
-[`../protocol/session.md`](../protocol/session.md) §7.6.
+`QuestAccept`, `quest_turn_in` carries `QuestTurnIn`, and `quest_abandon` carries
+`QuestAbandon` — and all three travel on the reliable channel. The abandon case was
+added by the 2026-08-20 amendment to ADR 0026, so T14 and T15 are reachable from a
+client; it is an additive case and does not bump `ProtocolVersion` (ADR 0027).
+
+The server reports a quest instance changing state with `ServerMessage`'s
+`quest_state_update` case, carrying `QuestStateUpdate`. The wire case is deliberately
+not named `quest_state`: `QuestState` is the enum in rule 5.1, and one name for two
+things in the same `sarnaut.v1` package would have had to be broken later, after the
+wire existed.
 
 ### 5.3 Prerequisite and required-level evaluation
 
@@ -440,3 +445,4 @@ cited path. No localization strings, art, or bulk data tables appear in this doc
 | Date | Change |
 |---|---|
 | 2026-08-20 | Created for M2. |
+| 2026-08-20 | Rule 5.2 updated for the ADR 0026 amendment of the same date: `quest_abandon` exists, so T14 and T15 are reachable, and the server's report is `quest_state_update` carrying `QuestStateUpdate`, which no longer collides with the `QuestState` enum in rule 5.1. |

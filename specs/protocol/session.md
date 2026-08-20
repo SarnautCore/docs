@@ -252,11 +252,11 @@ mechanism.
    are in use, a `move_intent` arriving on the stream is refused with
    `UNSUPPORTED_MESSAGE`, so a client cannot pick its own carrier per frame.
 3. Everything else is a `ClientMessage` case on the reliable channel: `ability_use`,
-   `interact`, `loot_take`, `quest_accept`, `quest_turn_in`. Replies and unsolicited
-   notifications are `ServerMessage` cases on the same channel — `combat_event`,
-   `death_event`, `loot_offer`, `loot_result`, `inventory_update`, `quest_state`,
-   `error` — so ordering between a command's effect and the events it causes is
-   preserved. **All combat traffic is reliable**: dropping an ability activation is a
+   `interact`, `loot_take`, `quest_accept`, `quest_turn_in`, `quest_abandon` and
+   `logout`. Replies and unsolicited notifications are `ServerMessage` cases on the
+   same channel — `combat_event`, `death_event`, `loot_offer`, `loot_result`,
+   `inventory_update`, `quest_state_update`, `error` — so ordering between a command's
+   effect and the events it causes is preserved. **All combat traffic is reliable**: dropping an ability activation is a
    gameplay bug, dropping a movement sample is not. That case list is the complete M2
    message set (ADR 0026); a case not on it does not exist on the wire, and an
    unrecognized or unset oneof case is a protocol violation answered with
@@ -307,13 +307,14 @@ mechanism.
    added.
 3. Teardown removes the snapshot subscription and the world entity. The `entity_id` is
    not reused for this character and carries no meaning after this point.
-4. **M2 has no logout message.** ADR 0026's case list is complete and holds neither a
-   client `logout` case nor a server acknowledgement, so a clean exit is the client
-   closing the connection: `readReliable` returns, the handler returns, and the same
-   teardown runs as on any other path. Nothing is written back on the way out; a client
-   that has already failed a read would not see it anyway. A `logout` case and its
-   acknowledgement would be an additive oneof case that does not bump
-   `ProtocolVersion` (ADR 0027) — §7.6 records what it would buy.
+4. **A clean exit is `ClientMessage.logout`** (2026-08-20 amendment to ADR 0026,
+   §7.6). `readReliable` receives it, the handler returns, and the same teardown runs
+   as on any other path — the verb changes when teardown starts, not what teardown
+   does. The shard acknowledges nothing: a client that has already stopped reading
+   would not see it, and the S1 checkpoint at rule 5.7.5 is what the client actually
+   cares about, which happens after the last frame either way. Closing the connection
+   without a `logout` remains legal and reaches identical teardown; what it loses is
+   the guarantee that S1 begins before the transport goes away rather than racing it.
 5. The session moves to `Draining` before teardown begins, so that a command already
    in flight is dropped by rule 5.5.4 rather than mutating state that is being
    persisted.
@@ -419,8 +420,8 @@ name here — character creation and shard shutdown — belong to `charstore` an
 | 15 | C → S | reliable | `ClientMessage{loot_take}` | `InZone` |
 | 16 | — | — | **S3**: loot grant committed, *then* `ServerMessage{loot_result}` and `{inventory_update}` | `InZone` |
 | 17 | C → S | reliable | `ClientMessage{quest_turn_in}` | `InZone` |
-| 18 | — | — | **S3**: quest turn-in committed, *then* `ServerMessage{quest_state}` | `InZone` |
-| 19 | C → S | — | client closes the connection (M2 has no `logout` case, rule 5.6.4) | `Draining` |
+| 18 | — | — | **S3**: quest turn-in committed, *then* `ServerMessage{quest_state_update}` | `InZone` |
+| 19 | C → S | reliable | `ClientMessage{logout}`, then the client closes (rule 5.6.4) | `Draining` |
 | 20 | — | — | `SnapshotCharacter(entityID)`, then `Zone.Leave` | `Draining` |
 | 21 | — | — | **S1**: persist the snapshot taken at step 20 | closed |
 
@@ -459,18 +460,22 @@ that is not a disconnect, and a load on entering the destination that is not a
 character select. The natural shape is to reuse S1 and L1 with the session staying
 `Authenticated` in between, but nothing validates that yet.
 
-### 7.3 The command envelope is decided but not yet built
+### 7.3 The command envelope — built 2026-08-20
 
-Rule 5.5 describes the `ClientMessage` / `ServerMessage` envelope decided in
-[ADR 0026](../../adr/0026-wire-message-envelope.md). It is not in
-`SERVER:proto/sarnaut/v1/` yet: the current loop reads a bare `ClientMoveIntent`, so
-the post-handshake stream is positionally typed and a wrong-type frame is mis-parsed
-rather than rejected. Building `envelope.proto` is an M2 task, and it lands with the
-proto lock and the client copy in the same pull request (ADR 0027). The open part is
-not the design but the cutover: there is no transition period in which both framings
-are accepted, so `client/tools/SarnautCore.NetSmoke` and
-`server/scripts/sar20-client-smoke.ps1` move in the same change. Where ADR 0026 and a
-rule here disagree, the ADR wins and this section is the amendment site.
+`SERVER:proto/sarnaut/v1/envelope.proto` exists, and so do `PROTO_LOCK.sha256` in both
+repositories and the client's `scripts/sync-proto.ps1`. The cutover happened in one
+merge window with no transition period, as ADR 0026 required: the shard, the Go probe,
+`client/tools/SarnautCore.NetSmoke` and `server/scripts/sar20-client-smoke.ps1` all
+moved together.
+
+What is not built is behind the cases rather than in them. `CombatEvent`, `DeathEvent`,
+`LootOffer`, `LootResult`, `InventoryUpdate` and `QuestStateUpdate` are declared with
+no fields, and the shard drops the client verbs whose mechanics tasks have not landed
+— it reads them, so nothing stalls, and it answers nothing. Filling those messages in
+is additive and does not bump `ProtocolVersion` (ADR 0027).
+
+Where ADR 0026 and a rule here disagree, the ADR wins and this section is the
+amendment site.
 
 ### 7.4 Backpressure on the reliable channel
 
@@ -485,15 +490,26 @@ unspecified.
 code. Rule 5.1.6 states the requirement; implementing it means giving the accept path
 a deadline that is cleared on reaching `Authenticated`.
 
-### 7.6 Logout and quest abandon have no message in the M2 set
+### 7.6 Logout and quest abandon — closed 2026-08-20
 
-ADR 0026's oneof lists are the complete M2 message set, and neither carries a client
-`logout` case nor a `quest_abandon` case. Rule 5.6.4 handles logout by having the
-client close the connection, which costs an acknowledgement the player never sees. The
-gap that matters more is abandon: [`../mechanics/quests.md`](../mechanics/quests.md)
-transitions T14 and T15 are specified and, until a case exists, unreachable from a
-client. Both are additive oneof cases that do not bump `ProtocolVersion` (ADR 0027),
-and both should be added with the first quest-log work rather than designed here.
+This section recorded that ADR 0026's case list carried neither a client `logout` case
+nor a `quest_abandon` case. Both were added by the 2026-08-20 amendment to
+[ADR 0026](../../adr/0026-wire-message-envelope.md), before the envelope was built,
+and the rules above are written against the amended list:
+
+- `quest_abandon` carries `QuestAbandon` and makes
+  [`../mechanics/quests.md`](../mechanics/quests.md) transitions T14 and T15 reachable
+  from a client. They were specified and unreachable.
+- `logout` carries `Logout`, an empty message whose actor is the session (rule 5.2.6).
+  It exists so save checkpoint S1 runs ahead of the disconnect instead of racing it
+  (rule 5.6.4). The shard acknowledges nothing.
+
+Neither bumps `ProtocolVersion`: both are additive oneof cases (ADR 0027).
+
+What is still open is the **server** side of abandon. `QuestStateUpdate`, the renamed
+`quest_state_update` case, has no fields yet; the quest task fills them in against
+`../mechanics/quests.md` rule 5.2, and adding fields to an existing message is
+additive too.
 
 ## 8. Sources
 
@@ -503,13 +519,14 @@ describes a clean protocol (ADR 0010) and derives nothing from the retail wire f
 SarnautCore server-repository paths (`SERVER:` = `server/`):
 
 - `proto/sarnaut/v1/common.proto` — the `ProtocolVersion` enum.
-- `proto/sarnaut/v1/handshake.proto` — `ClientHello` and `ServerHello` and their
-  `protocol_version` / `build_id` fields; `EnterZoneRequest` / `EnterZoneResponse`.
-  The `pack_id` field on both hellos (rule 5.1.4) and the `ticket` field on
-  `EnterZoneRequest` (rule 5.4.1) are additions decided in ADR 0027 and ADR 0030 and
-  are not in the tree yet.
+- `proto/sarnaut/v1/handshake.proto` — `ClientHello` and `ServerHello` with
+  `protocol_version`, `build_id` and the `pack_id` of rule 5.1.4.
+  `EnterZoneRequest` / `EnterZoneResponse` live in `replication.proto`, and the
+  `ticket` field of rule 5.4.1 is on the request.
 - `proto/sarnaut/v1/envelope.proto` — `ClientMessage`, `ServerMessage`, `Error` and
-  `ErrorCode`, per ADR 0026. Decided, not yet written; see §7.3.
+  `ErrorCode`, per ADR 0026 and its 2026-08-20 amendment; see §7.3.
+- `proto/PROTO_LOCK.sha256` and `internal/session/reader.go` — the lock over the
+  `.proto` set (ADR 0027) and the two reader goroutines of rule 5.5.1.
 - `proto/sarnaut/v1/movement.proto` — `ClientMoveIntent` with `seq`, `input`,
   `heading`, `dt_seconds`; and `Vec3`.
 - `proto/sarnaut/v1/replication.proto` — `SnapshotBatch` and `EntitySnapshot`.
@@ -553,3 +570,4 @@ code, and no game data appears in this document.
 |---|---|
 | 2026-08-20 | Created for M2. |
 | 2026-08-20 | Reconciled against ADRs 0026, 0027, 0029, 0030, 0031, 0032, 0033 and the ADR 0017 amendment: envelope message names and channel assignment in §4 and rule 5.5; `pack_id` gate in rule 5.1; ticket redemption replacing `AuthenticateRequest` in §5.2 and out-of-band character select in §5.3; zone-entry load/materialize/S0 in rules 5.4.4 and 5.7.8; `Zone.Leave` kept a pure eviction in rule 5.7.5; `save_seq` as the stale-write guard in rule 5.7.7; §7.6 added for the missing `logout` and `quest_abandon` cases. |
+| 2026-08-20 | Amended for the ADR 0026 amendment of the same date: `quest_abandon` and `logout` join the case list in rule 5.5.3, rule 5.6.4 makes `logout` the clean exit rather than a bare close, `quest_state` becomes `quest_state_update`, and §7.3 and §7.6 close now that `envelope.proto`, the proto lock and the client sync script exist. |
