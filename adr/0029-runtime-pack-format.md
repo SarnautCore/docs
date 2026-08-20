@@ -189,6 +189,9 @@ generated-base plus curated-overlay model.
   so far**, not a replacement. Scalars replace. Mappings merge recursively,
   key by key. **Sequences replace wholesale** — element-wise merging has no stable
   identity to key on, and a half-merged list is worse than an explicit rewrite.
+- **Zone selection**: before merging, the compiler skips with a reported note every
+  full overlay document or partial patch whose declared or canonical-id zone is
+  outside the pack's selected zone.
 - **Deletion**: a mapping node may carry `_op: replace` to discard the merged value
   beneath it instead of merging into it; a document may carry a top-level
   `_delete: [<dotted.path>, …]` applied after the merge; a document with top-level
