@@ -530,3 +530,70 @@ This amendment grants no import edge. `internal/script` still has no legal calle
 `server/.golangci.yml` has no depguard row for it, and adding one remains an
 architecture change under ADR 0033 that belongs to the M3 depguard amendment. A
 skeleton may exist behind a feature flag with no caller.
+
+### 2026-08-21 — Field-level corrections from the count-special implementation
+
+Implementing the count-special shapes and the auto-attack path against the 1.1
+documents corrected several details the survey and the amendment above carried
+imprecisely, and surfaced types the tier table should name. The representation, the
+tiers, the callers, the host contract and the determinism rules are unchanged; what
+follows is field-level fact, each item verified against `Types/types.xml` and the
+authored documents.
+
+**`ImpactIncreaseQuestCount`'s delta field is named `value`.** The reflection schema
+gives the type exactly two fields: `id`, a required `QuestCountId` reference, and
+`value`, an Integer defaulting to 1. The overwhelming majority of the 1486 uses in
+the reference tree omit it. The mistake this corrects was silent: an implementation
+reading a wrongly guessed field name defaults every increment to 1, which is correct
+for every tutorial document and wrong the first time content asks for more.
+
+**`HealthTrigger` has five fields, and `impactsOff` is detach-time cleanup.** The
+schema lists `healthOn`, `healthOff`, `impactsOn`, `impactsOff`, and `effects` — a
+nested effect list that attaches while the trigger is on. `RatKiller` does not use
+`effects`, but `IL_QuestSpells/SummonZombie.(AbilityResource).xdb` does, inside the
+tutorial's reach. Of the second impact list the schema says it is called on detach,
+if the first was called first, and that its meaning is cleanup. So `impactsOff` is
+not an upward crossing of `healthOff`: healing back past the threshold runs nothing,
+ending the attachment runs the cleanup. `healthOff` reads as a re-arm threshold, and
+a pure crossing model re-arms on its own, so nothing in the tutorial depends on the
+difference — `RatKiller`'s `healthOff` is `FloatZero`.
+
+**`WeaponSpeedScaler` carries one optional field, `source`**, of the enum
+`gameMechanics.world.attack.AttackSource` with values `Mainhand` and `Ranged`,
+selecting which weapon's speed the scaler reads. It is the only field on any of the
+three per-opcode scalers; `PhysicalScaler` and `PhysicalRangedScaler` carry none in
+any of their 173 and 40 uses.
+
+**Two vocabularies name a weapon slot, reconciled at the host adapter.** Equip
+gates (`EquipTrigger.slot`) speak `DressSlot` — `MAINHAND`, `TWOHANDED` — while
+damage sources and `WeaponSpeedScaler.source` speak `AttackSource` — `Mainhand`,
+`Ranged`. The interpreter passes both through verbatim, as the content spells them,
+and the host adapter that owns the equipment model is where the two vocabularies map
+onto one set of slots. Folding them into one spelling inside the evaluator would
+falsify the round trip back to content.
+
+**`HealthCalcer` exists and is refused.** The calcer family has a fourth member
+beside `FullHealthCalcer`, `FloatZero` and `FloatData`. No tutorial document reaches
+it, so it takes the family default: refused, loudly, until data demands it.
+
+**`TriggerAgentAddressee` and `TriggerAgentTarget` exist and are not in the
+tutorial.** The trigger-agent family is six members, not four. The schema defines
+all six over the `TriggerAgentResource` base (`trigger`, `detachesOnDeath`);
+`TriggerAgentSimple` adds `mobWorld`, and `TriggerAgentOnTagged` adds `mobWorld` and
+an `onSelf` Boolean that no tutorial document sets — `onSelf` true is refused rather
+than guessed. The implemented tier holds the four the tutorial reaches; Addressee
+and Target wait for data that uses them.
+
+**`ScaledPhysicalWeaponDamage` inherits an unused `scalerTarget` slot.** Its own
+fields are `scaler`, `avgDamage` and `source`; the `PhysicalDamage` base contributes
+`scalerTarget`, `canBeAvoided`, `cantBeMissed`, `threatMultiplier`, the on-hit
+impact lists and `statsConvertor`. The Warrior and auto-attack documents leave
+`scalerTarget` empty, so the implementation ignores the slot and the census will say
+so the first time content fills it.
+
+**`ImpactSetTarget`'s direction is inferred, and stays an open question.** The node
+appears in `Mechanics/Spells/Warrior` carrying an `AddresseeFinderCaster`, and the
+implementation reads it as "point the addressee at the found entity". No second
+independent use in reach confirms which side is the pointer and which the pointee;
+the reading is recorded here as inference, not fact, and the first document that
+distinguishes the two decides it.
