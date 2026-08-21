@@ -46,6 +46,7 @@ See [charter.md](charter.md) for the full goals, non-goals, and sources policy, 
 - [charter.md](charter.md) — goals, non-goals, sources policy.
 - [adr/](adr/) — Architecture Decision Records, the project's constitution.
 - [specs/](specs/) — behavioral specifications distilled from reverse-engineering research.
+- [specs/world/m2-demo-runbook.md](specs/world/m2-demo-runbook.md) — developer-machine Godot walkthrough for the complete M2 slice.
 
 ### Architecture Decision Records
 
