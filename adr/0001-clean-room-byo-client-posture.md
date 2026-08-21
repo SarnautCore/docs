@@ -1,6 +1,12 @@
 # ADR 0001 — Clean-room, bring-your-own-client posture
 
-**Status**: Accepted (2026-08-20)
+**Status**: Superseded (2026-08-21) by
+[ADR 0040](0040-materialized-native-content-architecture.md)
+
+The publishing rule below still holds: public releases contain zero MY.GAMES IP.
+What ADR 0040 replaces is the runtime architecture — content is materialized offline
+and shipped as the project's own native content, so there is no local bake, no
+user-supplied client at runtime, and no public converter.
 
 ## Context
 
