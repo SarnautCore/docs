@@ -6,7 +6,7 @@ marked, never deleted.
 
 | # | Decision |
 |---|---|
-| [0001](0001-clean-room-byo-client-posture.md) | Clean-room, bring-your-own-client posture |
+| [0001](0001-clean-room-byo-client-posture.md) | Clean-room, bring-your-own-client posture — *superseded by 0040* |
 | [0002](0002-classic-11-content-spine.md) | Classic 1.1 content spine; mechanics superset |
 | [0003](0003-milestones-m0-m1-m2.md) | Milestones M0 → M1 → M2 |
 | [0004](0004-per-domain-repo-topology.md) | Per-domain repository topology |
@@ -18,8 +18,8 @@ marked, never deleted.
 | [0010](0010-protocol-posture.md) | Clean protocol now; retail-compat door open |
 | [0011](0011-clean-room-reimplementation-rule.md) | Clean-room reimplementation rule |
 | [0012](0012-content-addressed-asset-store.md) | Content-addressed asset store |
-| [0013](0013-godot-native-canonical-asset-format.md) | Godot-native canonical asset format; glTF as DCC bridge |
-| [0014](0014-converter-gap-priorities.md) | Converter gap priorities |
+| [0013](0013-godot-native-canonical-asset-format.md) | Godot-native canonical asset format; glTF as DCC bridge — *superseded by 0040* |
+| [0014](0014-converter-gap-priorities.md) | Converter gap priorities — *superseded by 0040* |
 | [0015](0015-icon-upscaling.md) | Icon upscaling as stored variants |
 | [0016](0016-server-modular-monolith.md) | Server: modular monolith + auth + gateway |
 | [0017](0017-quic-protobuf-transport.md) | QUIC + protobuf behind a transport seam |
@@ -45,3 +45,4 @@ marked, never deleted.
 | [0037](0037-public-private-content-split.md) | Public authored content; private game-derived content |
 | 0038 (reserved) | World geometry coordinate frames and distance units |
 | 0039 (reserved) | Gateway interposition and zone-transfer session model |
+| [0040](0040-materialized-native-content-architecture.md) | Materialized-native content architecture |

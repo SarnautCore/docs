@@ -1,6 +1,12 @@
 # ADR 0013 — Godot-native output is the canonical game-ready form; glTF is the DCC bridge
 
-**Status**: Accepted (2026-08-20)
+**Status**: Superseded (2026-08-21) by
+[ADR 0040](0040-materialized-native-content-architecture.md)
+
+Godot-native output remains the game-ready form, but it is now plain Godot scenes,
+meshes, and textures with no custom C# loaders, produced by an offline bake and
+committed as product content. `ao-godot-converter` is private internal machinery
+rather than a product component.
 
 ## Context
 

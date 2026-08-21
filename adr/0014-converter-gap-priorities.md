@@ -1,6 +1,11 @@
 # ADR 0014 — Converter gap priorities
 
-**Status**: Accepted (2026-08-20)
+**Status**: Superseded (2026-08-21) by
+[ADR 0040](0040-materialized-native-content-architecture.md)
+
+The converter is no longer a product component, so its gaps are no longer product
+priorities. Remaining bake-quality work is scheduled as part of the materialization
+steps in ADR 0040.
 
 ## Context
 
