@@ -398,3 +398,135 @@ without giving up determinism.
   and to avoid silently executing a different node after a pack change.
 - Domain modules remain ignorant of the interpreter. Host adapters translate typed
   queries and commands at the existing module seams.
+
+## Amendments
+
+### 2026-08-21 — Census scope, node families, and per-opcode scaler tiering
+
+The representation, the three tiers, the four callers, the host interface, the
+determinism rules, the persisted deferred queue, and the ADR 0020 boundary are
+unchanged. What changes is scope and tiering. The M3 impact-interpreter survey
+followed the reference graph out of the 21 tutorial quests and found three places
+where the tables above stop short, each of which blocks an M3 exit criterion on its
+own.
+
+**The census scope gains two selectors.** The five selectors describe the four
+tutorial trees correctly, but the set is not closed under the reference graph of the
+quests. Three count-special objectives, `Quest_1_30/CountId_1`, `Quest_2_10/CountId_1`
+and `Quest_2_10/CountId_2`, have no `ImpactIncreaseQuestCount` anywhere in the 570
+documents. Their incrementers are `RatKiller`, `HumanKiller` and `Human2Killer` under
+`Mechanics/Spells/QuestSpells/IL_QuestSpells/`, reached from the quests' own
+`startImpacts` through `ImpactFindSpawnTable` and `ImpactAttachTrigger`. Quest 1-20
+additionally attaches `IL_QuestSpells/PaladinAsks.(BuffResource).xdb` and
+`Mechanics/Spells/ItemSpells/StartInstPotions/Buff01.(BuffResource).xdb` from its start
+and reward impacts.
+
+| Added selector below `game/data` | Documents |
+|---|---:|
+| `Mechanics/Spells/QuestSpells/IL_QuestSpells/**/*.xdb` | 186 |
+| `Mechanics/Spells/ItemSpells/StartInstPotions/**/*.xdb` | as discovered |
+
+The union is therefore no longer fixed at 570 documents, and the family counts of 65
+impacts, 18 effects, 11 predicates, and 3 addressee finders hold only for the
+five-selector scope they were measured over. Each count is read with its scope
+attached. The bounded transitive closure from the 21 quest documents, following hrefs
+into script-bearing root elements, reaches 228 documents. The trigger corpus is 13
+documents, not 10. What binds is the discovered set with zero dangling references; the
+extractor reports what it finds. Left uncorrected, the M3 zero-skip gate cannot pass at
+any coverage tier, because three objectives have no incrementer to reach.
+
+**The representation has seven node families, not five.** `family` is a normative
+`ScriptNode` field, so the legal values are part of this decision. The tier table rows
+impact, predicate, effect, addressee finder, and scaler. Two more carry M3 weight:
+
+- `calcer`, from `gameMechanics.elements.calcers.*`;
+- `basic`, from `gameMechanics.constructor.basicElements.*`.
+
+`PredicateAnd` is already implemented and already lives in `basicElements`, so the
+table already mixes namespaces without saying so. Naming the families makes that
+explicit. The consequence is concrete rather than cosmetic: `HealthTrigger` is
+implemented, its `healthOn` operand is `FullHealthCalcer` and its `healthOff` operand
+is `FloatZero`, and neither operand has a tier. Both default to refused, and a refused
+node reached by `scripts/m3-tutorial-driver` is a hard CI failure. As written above,
+the first rat death in quest 1-30 fails the build.
+
+**Scalers are tiered per opcode.** The sentence "Non-trivial scalers and every
+state-changing type outside the table are refused" is replaced by this rule: a scaler
+carries a tier per opcode like every other family, and an untiered scaler is refused.
+`Mechanics/Spells/Warrior` and `Mechanics/Spells/AutoAttack` produce every damage
+number through `PhysicalScaler`, `PhysicalRangedScaler`, and `WeaponSpeedScaler`, and
+`ScaledPhysicalWeaponDamage` is the auto-attack itself. Under the blanket rule the
+first swing reaches a refused node.
+
+**There is a fourth addressee finder.** Three finders is correct for the
+570-document scope and stops being correct once spells land. `AddresseeFinderCaster`
+appears in `Mechanics/Spells/Warrior` and joins the implemented tier.
+
+**The M3 implemented tier gains the following types**, all reached by the tutorial
+closure or the Warrior kit:
+
+| Family | Added to the implemented tier |
+|---|---|
+| Trigger binding | `ImpactAttachTrigger`, `TriggerAgentSelf`, `TriggerAgentInterlocutor`, `TriggerAgentSimple`, `TriggerAgentOnTagged` |
+| Calcer | `FullHealthCalcer`, `FloatData` |
+| Basic | `FloatZero`, `PredicateOr`, `PredicateNot`, `EffectTrigger` |
+| Addressee resolution | `ImpactFindSpawnTable`, `ImpactCreaturesAround`, `ImpactDevicesAround`, `AddresseeFinderCaster` |
+| Quest counting | `TagMobForKill` |
+| Spawn and despawn | `ImpactInstantiating`, `ImpactInstantiatingSimple`, `ReturningInstantiatingImpact`, `SpawnSingleMob`, `ImpactKill`, `ImpactDisintegrate`, `ImpactStopSpawn` |
+| World state | `DoorSwitch`, `ImpactTeleportLoc`, `ImpactTurnMob`, `ImpactGoToLocator`, `ImpactMobMorph`, `ImpactSummon`, `ImpactClearTarget`, `ImpactLearnUp`, `AttachAbility` |
+| Variables | `ImpactIfScriptZoneVariable`, `PredicateVariableValueLessThan` |
+| Aggro | `ImpactActivateAggro`, `ForceAggro` |
+| Probability | `ProbabilisticImpact`, `ProbabilisticImpactBinary`, `RandomImpact` |
+| Scaler | `PhysicalScaler`, `PhysicalRangedScaler`, `WeaponSpeedScaler`, `LinearEffectScaler`, `LinerMultiplierScaler` |
+| Warrior kit | `ScaledPhysicalWeaponDamage`, `ImpactSetTarget`, `ImpactRemoveBuff`, `ImpactRemoveAllBuffsFromGroup`, `ImpactResetCombatAdvantage`, `PredicateEquipped`, `PredicateRemote`, `PredicateHasCombatAdvantage`, `PredicateIsMob`, `EffectLinearStatModifier` |
+
+The determinism rule for `ProbabilisticImpact` and `RandomImpact` is already decided
+above; those types were never tiered.
+
+**Movement-lockout effects stay inert-and-counted, as a stated concession.**
+`EffectDisableMove`, `EffectDisableRotate`, `EffectDisableEvadeTimeout`,
+`AutoAttackDisabler`, and `EffectNoAggro` appear on quest 3-10's `AnimationBuff`, which
+pins the player through a scripted beat. Omitting them cannot corrupt authoritative
+state, which is the inert tier's admission test, but it does let a player walk out of a
+cutscene. M3 accepts that, and the quest mechanics spec records it.
+
+**Quest count-special consumes the interpreter through `Host.Apply`.**
+`internal/quests` does not learn what an impact is. `QuestCountSpecial` becomes a
+counter keyed by a `QuestCountId` content id, and the quest module exposes exactly one
+new operation: increment counter K for character C by N, clamped at the objective's
+limit, idempotent under the command's execution key. The evaluator reaches it as a
+`Command` through the existing host interface. The adapter lives above both packages in
+`internal/session`, where `ZoneBinding.KillSink` already adapts a combat kill into a
+quest kill, so the ADR 0033 module row for `internal/quests` is untouched: quests still
+import only inventory, pack, and gametypes, and never `internal/script`. The quest row
+needs no shape change, because `pack.QuestObjective.CounterKey` already carries the
+count id; the only addition is a map from count id to objective index, built once per
+definition. Two properties bind the tests, both taken from the data. `Quest_1_20/CountId_1`
+has two independent incrementers, `DressTrigger` and the broken-door exploit, against a
+limit of 1, and both firing must leave the counter at 1. `RatKiller` increments through
+`ReturningImpact`, so credit must land on the killer rather than the dying rat; a test
+that attributes it to the addressee passes trivially and proves nothing.
+
+**Spell documents are a root-element family the extractor discovers**, not a
+directory: `SpellSingleTarget`, `SpellCasterSelf`, `AbilityResource`, and
+`BuffResource`. `SpellCasterSelf` already appears seven times inside the tutorial
+scope, and `Items/QuestItems/InstLeague1/HealElixir/Heal.(SpellCasterSelf).xdb` is
+itself a count-special driver, so the spell path is on the zero-skip critical path and
+not only on the combat one. The Warrior surface is 28 distinct node types over 15
+documents. Damage flows from `ScaledPhysicalWeaponDamage` through a scaler to
+`MarkedImpact`, and the scaler is where combat's numbers come from. The `LifeGuard`
+pre-commitment holds unchanged: the arithmetic stays behind the existing combat hook
+with a host adapter above both packages, and if a scaler handler finds itself wanting
+`internal/combat`, the seam is wrong and the change stops.
+
+Nothing here changes the pipeline posture. The pack compiler still has no opcode
+allow-list; every change above decides which opcodes execute, never which opcodes
+encode, and an untiered opcode still round-trips. Every addition lands as a row in
+`server/internal/script/testdata/inst-league1-tier-counts.json`, so widening coverage
+stays a visible review diff. `pack_id` is unaffected, because it is a function of table
+bytes and tiering rides in rows that already exist.
+
+This amendment grants no import edge. `internal/script` still has no legal caller,
+`server/.golangci.yml` has no depguard row for it, and adding one remains an
+architecture change under ADR 0033 that belongs to the M3 depguard amendment. A
+skeleton may exist behind a feature flag with no caller.
