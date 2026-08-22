@@ -68,14 +68,28 @@ order below.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `schema_version` | integer | Format version of the pack itself. Currently `1`. A reader rejects any other value outright. |
+| `schema_version` | integer | Format version of the pack itself. Currently `2`. A reader rejects any other value outright. Version 2 adds the required `contracts` block; version 1 packs must be rebuilt. |
 | `ruleset` | string | `classic` or `modern`. |
 | `zone` | string | Zone slug, or `-` for a ruleset-global pack. |
 | `pack_id` | string | 64 lowercase hex characters. BLAKE3-256 over table bytes, computed as below. |
 | `builder` | object | `{"name":"sarnaut-pack","version":"<crate semver>"}`. |
 | `source` | object | `{"repo":"data","commit":"<40 hex>","overlays":["<layer id>", …]}` in applied order. |
 | `keep_extra` | bool | True only when built with `--keep-extra`. |
+| `contracts` | object | Closed product-catalog identities required to interpret table rows. Currently `{"bag_layout_catalog_blake3":"<64 lowercase hex>"}`. |
 | `tables` | array | Sorted by `name`. Each entry `{"name":…, "file":"tables/<name>.sptbl", "row_type":"<RowType enum name>", "rows":<u32>, "bytes":<u64>, "blake3":"<64 hex>"}`. |
+
+The bag-layout contract digest is BLAKE3-256 over the product-native catalog sorted
+by layout id, bytewise ascending. For each layout the writer hashes one UTF-8 line:
+
+```
+<layout-id>|<decimal-capacity>|<decimal-partition-1>,<decimal-partition-2>,…\n
+```
+
+The reader recomputes the digest from its own closed catalog and compares it with
+`contracts.bag_layout_catalog_blake3` before reading table rows. A mismatch aborts
+startup. This makes compiler/runtime catalog drift explicit even when the particular
+pack contains no bag item. The manifest remains outside `pack_id`: this digest is a
+reader compatibility contract, while `pack_id` continues to identify table bytes.
 
 ### How pack_id is computed
 
@@ -143,7 +157,8 @@ carried through; no timestamps, paths, or hostnames anywhere in table bytes.
 the file and non-overlapping; row index strictly increasing with the required first
 and last values; key index sorted; `row_type_id` matches the `row_type` recorded in
 the manifest for that table; each table's BLAKE3 matches the manifest; recomputed
-`pack_id` matches `manifest.pack_id`. Any failure aborts shard startup. There is no
+`pack_id` matches `manifest.pack_id`; every required `contracts` digest matches the
+reader's closed product catalog. Any failure aborts shard startup. There is no
 partial load and no repair path.
 
 ### The `extra:` passthrough is stripped by default
@@ -246,3 +261,15 @@ check that actually proves the Rust writer and the Go reader still agree.
   between them is a `sarnaut-pack` compile error.
 - Content changes now require a build step before a shard sees them, and the
   handshake digest of ADR 0027 makes a stale build visible at connect time.
+
+## Amendments
+
+### 2026-08-22 — manifest v2 binds closed product catalogs
+
+Manifest schema v2 adds the required `contracts` block and the canonical
+`bag_layout_catalog_blake3` rule above. The compiler and runtime had independently
+copied the same closed bag-layout catalog; a table could therefore compile under one
+catalog and be interpreted under another without changing either repository's local
+tests. The explicit digest makes that drift a startup refusal. Schema v1 packs do not
+carry this compatibility identity and must be rebuilt; readers do not infer or
+default it. `pack_id` remains a digest of table bytes alone.
